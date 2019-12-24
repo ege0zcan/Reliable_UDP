@@ -1,3 +1,5 @@
+//import sun.security.mscapi.KeyStore;
+
 import java.io.*;
 import java.net.*;
 import java.nio.ByteBuffer;
@@ -8,10 +10,14 @@ import java.util.Arrays;
 import java.util.List;
 
 public class Sender {
-    // Constant
+    // Constants
     private static final int SEGMENT_SIZE = 1024; // 1KB packets
     private static final int HEADER_SIZE = 2; // 2 Byte headers
     private static final int ACK_SIZE = 2; // 2 Byte headers
+
+    private static final int SENT = 0;
+    private static final int ACKED = 1;
+    private static final int USABLE = 2;
 
     // Variables
     private static String file_path;
@@ -32,27 +38,104 @@ public class Sender {
         ip = "127.0.0.1"; //localhost
         // Create file object for image
         image = new File(file_path);
+        // Arraylist that will store the packets
+        List<byte[]> segments;
 
-
-        int sequence_no = 1;
         try{
             // Split image into packets
-            List<byte[]> segments = splitFile(image);
+            segments = splitFile(image);
+
             // Set variables
             startConnection();
+
             // Send packets
-            for (byte[] segment : segments)
-            {
-                MyThread test = new MyThread(segment,retransmission_timeout,clientSocket,ip_address,receiver_port,sequence_no);
-                //sendSegment(segment);
-                //start timer
-                //checkResponse();
-                sequence_no++;
-            }
+            sendPackets(segments);
+
             stopConnection();
         }catch (IOException e) {
             e.printStackTrace();
         }
+
+//        // Send packets
+//        for (byte[] segment : segments)
+//        {
+//            MyThread test = new MyThread(segment,retransmission_timeout,clientSocket,ip_address,receiver_port,sequence_no);
+//            //sendSegment(segment);
+//            //start timer
+//            //checkResponse();
+//            sequence_no++;
+//        }
+    }
+
+    public static void sendPackets(List<byte[]> segments) throws IOException {
+        int send_base = 1; // initial send_base
+//        int send_end = window_size_N; // initial endpoint for send window
+        int next_seq = send_base; // sequence number of next packet to send
+
+        int no_of_packets = segments.size();
+        int no_of_received_ack = 0;
+
+        MyThread[] threads = new MyThread[window_size_N];
+        int[] ack_buffer = new int[window_size_N];
+        for(int i = 0; i <window_size_N ; i++)
+        {
+            ack_buffer[i] = USABLE;
+        }
+
+
+        while (no_of_received_ack < no_of_packets)
+        {
+            // Send packets from send_window
+            while( next_seq >= send_base && next_seq < send_base + window_size_N && next_seq <= no_of_packets)
+            {
+                int thread_index = (next_seq-1) % window_size_N;
+
+                if(ack_buffer[thread_index] == USABLE)
+                {
+                    byte[] segment = segments.get(next_seq-1);
+                    threads[thread_index] = new MyThread(segment,retransmission_timeout,clientSocket,ip_address,receiver_port,next_seq);
+                    System.out.println("Sending packet no: " + next_seq + " Thread_Index "  + thread_index );
+                    ack_buffer[thread_index] = SENT;
+                    next_seq++;
+                }
+            }
+
+            // Get ACK
+            int ack_sequence_no = checkResponse();
+
+            // If ACK'ed packet in window
+            if(ack_sequence_no >= send_base && ack_sequence_no < send_base + window_size_N )
+            {
+                int thread_index = (ack_sequence_no-1) % window_size_N;
+                MyThread acked_thread = threads[thread_index];
+
+                // If ACK'ed thread alive
+                if(acked_thread.isAlive())
+                {
+                    acked_thread.interrupt();
+                    no_of_received_ack++;
+                    ack_buffer[thread_index] = ACKED;
+
+                    // If ACK received for first  packet in window, increase send base
+                    if(ack_sequence_no == send_base)
+                    {
+                        ack_buffer[(send_base-1)%window_size_N] = USABLE;
+                        send_base++;
+
+                        // Check buffer for other ACK'ed packets
+                        while(ack_buffer[(send_base-1)%window_size_N] == ACKED)
+                        {
+                            ack_buffer[(send_base-1)%window_size_N] = USABLE;
+                            send_base++;
+                        }
+
+                    }
+                }
+            }
+        }
+        System.out.println("NO OF ACK: "+ no_of_received_ack);
+        System.out.println("SEND_BASE" + send_base);
+        System.out.println("NEXT SEQ: "+ next_seq);
     }
 
     public static List<byte[]> splitFile(File f) throws IOException {
@@ -122,7 +205,7 @@ public class Sender {
         clientSocket.send(sendPacket);
     }
 
-    public static void checkResponse() throws IOException {
+    public static int checkResponse() throws IOException {
         byte[] receiveData = new byte[ACK_SIZE];
         DatagramPacket receivePacket = new DatagramPacket(receiveData, receiveData.length);
         clientSocket.receive(receivePacket);
@@ -133,7 +216,8 @@ public class Sender {
         big_endian[2] = data[0];
         big_endian[3] = data[1];
         int ack_seq_no = java.nio.ByteBuffer.wrap(big_endian).getInt();
-        System.out.println(ack_seq_no);
+        System.out.println("ACK GELDI: "+ ack_seq_no);
+        return ack_seq_no;
     }
 
 

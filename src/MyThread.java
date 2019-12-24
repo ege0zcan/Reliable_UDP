@@ -21,8 +21,7 @@ public class MyThread implements Runnable {
         this.receiver_port = receiver_port;
         this.sequence_no = sequence_no;
         t = new Thread(this);
-        System.out.println("New thread: " + t);
-        System.out.println("Alo" + sequence_no);
+        System.out.println("New thread: " + t + " for sequence no " + sequence_no);
         t.start();
     }
 
@@ -31,7 +30,7 @@ public class MyThread implements Runnable {
         try {
             while (true) {
                 // Send packet
-                //sendSegment(segment);
+                sendSegment(segment);
 
                 // Wait for main thread notification or timeout
                 Thread.sleep(timeout);
@@ -40,18 +39,28 @@ public class MyThread implements Runnable {
 
         // Stop if main thread interrupts this thread
         catch (InterruptedException e) {
+            System.out.println("interrupt");
             return;
         }
-//        } catch (IOException e) {
-//        e.printStackTrace();
-//        }
-//    }
-
-//    public void sendSegment(byte[] segment) throws IOException {
-//        DatagramPacket sendPacket = new DatagramPacket(segment, segment.length, ip_address, receiver_port);
-//        clientSocket.send(sendPacket);
-//    }
+        catch (IOException e) {
+        e.printStackTrace();
+        }
     }
+    public void sendSegment(byte[] segment) throws IOException {
+        DatagramPacket sendPacket = new DatagramPacket(segment, segment.length, ip_address, receiver_port);
+        clientSocket.send(sendPacket);
+    }
+
+    public boolean isAlive(){
+        return t.isAlive();
+    }
+
+    public void interrupt(){
+        t.interrupt();
+    }
+
+//    public final native boolean isAlive();
+//    public final native boolean interrupt();
 }
 
 class MultiThread {
