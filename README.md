@@ -1,5 +1,6 @@
 # Reliable_UDP
 Achieving reliable  data transfer over UDP by utilizing selective repeat mechanism in the application layer. 
+Assignment for Computer Networks course. The receiver code was not written by me.
 
 ## Summary
 Every packet in the transmission window is handled by a new thread. A thread sends the packet and starts waiting. 
