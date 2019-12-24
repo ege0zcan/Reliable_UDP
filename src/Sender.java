@@ -1,5 +1,3 @@
-//import sun.security.mscapi.KeyStore;
-
 import java.io.*;
 import java.net.*;
 import java.nio.ByteBuffer;
@@ -55,21 +53,10 @@ public class Sender {
         }catch (IOException e) {
             e.printStackTrace();
         }
-
-//        // Send packets
-//        for (byte[] segment : segments)
-//        {
-//            MyThread test = new MyThread(segment,retransmission_timeout,clientSocket,ip_address,receiver_port,sequence_no);
-//            //sendSegment(segment);
-//            //start timer
-//            //checkResponse();
-//            sequence_no++;
-//        }
     }
 
     public static void sendPackets(List<byte[]> segments) throws IOException {
         int send_base = 1; // initial send_base
-//        int send_end = window_size_N; // initial endpoint for send window
         int next_seq = send_base; // sequence number of next packet to send
 
         int no_of_packets = segments.size();
@@ -94,7 +81,6 @@ public class Sender {
                 {
                     byte[] segment = segments.get(next_seq-1);
                     threads[thread_index] = new MyThread(segment,retransmission_timeout,clientSocket,ip_address,receiver_port,next_seq);
-                    System.out.println("Sending packet no: " + next_seq + " Thread_Index "  + thread_index );
                     ack_buffer[thread_index] = SENT;
                     next_seq++;
                 }
@@ -133,9 +119,6 @@ public class Sender {
                 }
             }
         }
-        System.out.println("NO OF ACK: "+ no_of_received_ack);
-        System.out.println("SEND_BASE" + send_base);
-        System.out.println("NEXT SEQ: "+ next_seq);
     }
 
     public static List<byte[]> splitFile(File f) throws IOException {
@@ -216,7 +199,6 @@ public class Sender {
         big_endian[2] = data[0];
         big_endian[3] = data[1];
         int ack_seq_no = java.nio.ByteBuffer.wrap(big_endian).getInt();
-        System.out.println("ACK GELDI: "+ ack_seq_no);
         return ack_seq_no;
     }
 
